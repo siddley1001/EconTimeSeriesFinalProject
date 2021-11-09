@@ -1,0 +1,83 @@
+---
+title: "ECON 573 Research Paper"
+author: "Siddhartha Vanam"
+date: "11/5/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Necessary Libraries
+```{r test1, echo=FALSE}
+library(tidyverse)
+library(fGarch)
+library(fredr)
+library(quantmod)
+library(tidyquant)
+```
+
+# Research Question in Discussion: Using the Garch Model to explain volatility of `VHT` and `VDE`  that represent Sector `Healthcare` and `Energy` (daily).
+
+```{r}
+vht = tq_get("VHT", 
+        from = '2010-01-01',
+        to = "2021-11-01",warnings = FALSE)
+vde = tq_get("VDE", 
+        from = '2005-01-01',
+        to = "2021-01-01",warnings = FALSE)
+#Vanguard's S&P 500
+voo = tq_get("VOO", 
+        from = '2005-01-01',
+        to = "2021-01-01",warnings = FALSE)
+
+vix = tq_get("^VIX", 
+        from = '2010-01-01',
+        to = "2021-11-01",warnings = FALSE)
+head(vht)
+head(vde)
+head(voo)
+vix
+```
+
+# Getting Data for the Macro Indicator
+```{r}
+api_key = "dde5ad634e39b6e288c9a2ebec181e58"
+#IR, UR, CPI
+fredr_set_key(api_key)
+ur = fredr(
+  series_id = "UNRATE",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01")
+)
+
+```
+
+
++ Type of Problem: **Regression**
+- Linear Regression
+- Lasso/ Ride/ Elastic Net
+- Regression Trees
+- Random Forests
+- Boosting
+- SVM
+- kNN
+
+# Requirements
+
++ 15 pages long
+
+# Parts
+
++ Research Question
++ Data
++ Methodology
+  + Assumptions
+  + Unique
+  + Interpretability
+  + Bias/ Variance Tradeoff in parameter selection
++ Results
+
+
+
