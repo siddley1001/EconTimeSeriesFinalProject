@@ -22,7 +22,7 @@ library(tidyquant)
 
 ```{r}
 vht = tq_get("VHT", 
-        from = '2010-01-01',
+        from = '2005-01-01',
         to = "2021-11-01",warnings = FALSE)
 ```
 
@@ -44,7 +44,7 @@ voo = tq_get("VOO",
 
 ```{r}
 vix = tq_get("^VIX", 
-        from = '2010-01-01',
+        from = '2005-01-01',
         to = "2021-11-01",warnings = FALSE)
 ```
 
