@@ -24,36 +24,115 @@ library(tidyquant)
 vht = tq_get("VHT", 
         from = '2010-01-01',
         to = "2021-11-01",warnings = FALSE)
+```
+
+
+```{r}
 vde = tq_get("VDE", 
         from = '2005-01-01',
         to = "2021-01-01",warnings = FALSE)
+```
+
+
+```{r}
 #Vanguard's S&P 500
 voo = tq_get("VOO", 
         from = '2005-01-01',
         to = "2021-01-01",warnings = FALSE)
+```
 
+
+```{r}
 vix = tq_get("^VIX", 
         from = '2010-01-01',
         to = "2021-11-01",warnings = FALSE)
+```
+
+
+```{r}
+#might have to prefix the columns before we merge with the respective symbol
+#Are we going to calculate returns on close or adjusted?
 head(vht)
 head(vde)
 head(voo)
-vix
+sample(vix)
 ```
 
 # Getting Data for the Macro Indicator
 ```{r}
 api_key = "dde5ad634e39b6e288c9a2ebec181e58"
-#IR, UR, CPI
 fredr_set_key(api_key)
-ur = fredr(
-  series_id = "UNRATE",
+
+#Daily Indicators are as Follows:
+crude_oil_prices = fredr(
+  series_id = "DCOILBRENTEU",
   observation_start = as.Date("2005-01-01"),
-  observation_end = as.Date("2021-01-01")
-)
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+intl_trade_weight_dol = fredr(
+  series_id = "DTWEXBGS",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+yield_2yr = fredr(
+  series_id = "DGS2",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
 
 ```
 
+```{r}
+#Weekly Indicators are as follows:
+intl_job_claims = fredr( 
+  series_id = "ICSA",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+chifed_nfci = fredr( 
+  series_id = "NFCI",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+m.1 = fredr( 
+  series_id = "M1SL",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+fed_bal = fredr( 
+  series_id = "WALCL",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+treas_gen_acct = fredr( 
+  series_id = "WDTGAL",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+```
+
+```{r}
+#Monthly Indicators are as follows:
+cpi = fredr( 
+  series_id = "USACPIALLMINMEI",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+ur = fredr(
+  series_id = "UNRATE",
+  observation_start = as.Date("2005-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
 
 + Type of Problem: **Regression**
 - Linear Regression
@@ -70,8 +149,8 @@ ur = fredr(
 
 # Parts
 
-+ Research Question
-+ Data
++ ~~Research Question~~
++ ~~Data~~
 + Methodology
   + Assumptions
   + Unique
