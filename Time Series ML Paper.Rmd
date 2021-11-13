@@ -35,10 +35,12 @@ vde = tq_get("VDE",
 
 
 ```{r}
-#Vanguard's S&P 500
+#S&P 500
 sp = tq_get("^GSPC", 
         from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
+sp = sp[, c(2,8)]
+sp
 ```
 
 
@@ -47,8 +49,6 @@ vix = tq_get("^VIX",
         from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
 ```
-
-
 
 
 ```{r}
@@ -93,6 +93,7 @@ yield_2yr = yield_2yr %>%
 #Merging Data
 daily_indicators = full_join(crude_oil_prices, intl_trade_weight_dol) %>% full_join(yield_2yr)
 ```
+
 
 ```{r}
 #Weekly Indicators are as follows:
@@ -143,6 +144,7 @@ weekly_indicators = full_join(intl_job_claims, chifed_nfci) %>% full_join(chifed
 weekly_indicators
 ```
 
+
 ```{r}
 #Monthly Indicators are as follows:
 cpi = fredr( 
@@ -188,6 +190,7 @@ rownames(holdIt) <- holdIt$vht.date
 holdIt$vht.date <- NULL
 x.vec = as.xts(holdIt)
 fit <- garchFit(~ garch(1,1), data = x.vec, trace = FALSE)
+
 volvht <- volatility(fit)
 volvht <- xts(volvht, order.by = index(x.vec))
 plot(volvht)
@@ -205,13 +208,26 @@ volvde <- volatility(fit2)
 volvde <- xts(volvde, order.by = index(x.vec2))
 plot(volvde)
 ```
+
 ```{r}
-volvde_df <- data.frame(date = as.Date(index(volvde)), 
+vol.vde_df <- data.frame(date = as.Date(index(volvde)), 
                     coredata(volvde))
-final_merged_vde <- merge(final_indicator_df, volvde_df, by = "date")
-volvht_df <- data.frame(date = as.Date(index(volvht)), 
+final_merged_vde <- merge(final_indicator_df, vol.vde_df, by = "date")
+final_merged_vde = merge(final_merged_vde, sp, by = "date")
+colnames(final_merged_vde)[13] = "adj_vde.close"
+
+vol.vht_df <- data.frame(date = as.Date(index(volvht)), 
                     coredata(volvht))
-final_merged_vht <- merge(final_indicator_df, volvht_df, by = "date")
+final_merged_vht <- merge(final_indicator_df, vol.vht_df, by = "date")
+final_merged_vht = merge(final_merged_vht, sp, by = "date")
+colnames(final_merged_vht)[13] = "adj_vht.close"
+```
+
+```{r}
+
+final_merged_vde %>% summarise_all(~ sum(is.na(.)))
+final_merged_vht %>% summarise_all(~ sum(is.na(.)))
+```
 
 
 + Type of Problem: **Regression**
