@@ -23,7 +23,7 @@ library(tidyquant)
 ```{r}
 vht = tq_get("VHT", 
         from = '2005-01-01',
-        to = "2021-11-01",warnings = FALSE)
+        to = "2021-01-01",warnings = FALSE)
 ```
 
 
@@ -45,7 +45,7 @@ sp = tq_get("^GSPC",
 ```{r}
 vix = tq_get("^VIX", 
         from = '2005-01-01',
-        to = "2021-11-01",warnings = FALSE)
+        to = "2021-01-01",warnings = FALSE)
 ```
 
 
