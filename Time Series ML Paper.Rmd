@@ -12,24 +12,24 @@ knitr::opts_chunk$set(echo = TRUE)
 # Necessary Libraries
 ```{r test1, echo=FALSE}
 library(tidyverse)
-library(fGarch)
 library(fredr)
 library(quantmod)
 library(tidyquant)
+library(fGarch)
 ```
 
 # Research Question in Discussion: Using the Garch Model to explain volatility of `VHT` and `VDE`  that represent Sector `Healthcare` and `Energy` (daily).
 
 ```{r}
 vht = tq_get("VHT", 
-        from = '2005-01-01',
+        from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
 ```
 
 
 ```{r}
 vde = tq_get("VDE", 
-        from = '2005-01-01',
+        from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
 ```
 
@@ -37,14 +37,14 @@ vde = tq_get("VDE",
 ```{r}
 #Vanguard's S&P 500
 sp = tq_get("^GSPC", 
-        from = '2005-01-01',
+        from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
 ```
 
 
 ```{r}
 vix = tq_get("^VIX", 
-        from = '2005-01-01',
+        from = '2006-01-01',
         to = "2021-01-01",warnings = FALSE)
 ```
 
@@ -53,7 +53,6 @@ vix = tq_get("^VIX",
 
 ```{r}
 #might have to prefix the columns before we merge with the respective symbol
-
 head(vht)
 head(vde)
 head(sp)
@@ -64,41 +63,33 @@ sample(vix)
 ```{r}
 api_key = "dde5ad634e39b6e288c9a2ebec181e58"
 fredr_set_key(api_key)
-
 #Daily Indicators are as Follows:
 crude_oil_prices = fredr(
   series_id = "DCOILBRENTEU",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 intl_trade_weight_dol = fredr(
   series_id = "DTWEXBGS",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 yield_2yr = fredr(
   series_id = "DGS2",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 #Rename Dataframes before merging
 names(crude_oil_prices) = c("date", "crude_oil_price_value")
 names(intl_trade_weight_dol) = c("date", "intl_trade_weight_dol_value")
 names(yield_2yr) = c("date", "yield_2yr_value")
-
 # Forward Filled Values for Weekly Data
 crude_oil_prices = crude_oil_prices %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(crude_oil_price_value, .direction = "up")
-
+  fill(crude_oil_price_value, .direction = "down")
 intl_trade_weight_dol = intl_trade_weight_dol %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(intl_trade_weight_dol_value, .direction = "up")
-
+  fill(intl_trade_weight_dol_value, .direction = "down")
 yield_2yr = yield_2yr %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(yield_2yr_value, .direction = "up")
-
+  fill(yield_2yr_value, .direction = "down")
 #Merging Data
 daily_indicators = full_join(crude_oil_prices, intl_trade_weight_dol) %>% full_join(yield_2yr)
 ```
@@ -107,60 +98,48 @@ daily_indicators = full_join(crude_oil_prices, intl_trade_weight_dol) %>% full_j
 #Weekly Indicators are as follows:
 intl_job_claims = fredr( 
   series_id = "ICSA",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2005-12-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 chifed_nfci = fredr( 
   series_id = "NFCI",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2005-12-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 m.1 = fredr( 
   series_id = "M1SL",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 fed_bal = fredr( 
   series_id = "WALCL",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2005-12-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 treas_gen_acct = fredr( 
   series_id = "WDTGAL",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2005-12-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 #Rename Dataframes before merging
 names(intl_job_claims) = c("date", "intl_job_claims_value")
 names(chifed_nfci) = c("date", "chifed_nfci_value")
 names(m.1) = c("date", "m.1_value")
 names(fed_bal) = c("date", "fed_bal_value")
 names(treas_gen_acct) = c("date", "treas_gen_acct_value")
-
 # Forward Filled Values for Weekly Data
 intl_job_claims = intl_job_claims %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(intl_job_claims_value, .direction = "up")
-
+  fill(intl_job_claims_value, .direction = "down")
 chifed_nfci = chifed_nfci %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(chifed_nfci_value, .direction = "up")
-
+  fill(chifed_nfci_value, .direction = "down")
 m.1 = m.1 %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(m.1_value, .direction = "up")
-
+  fill(m.1_value, .direction = "down")
 fed_bal = fed_bal %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(fed_bal_value, .direction = "up")
-
+  fill(fed_bal_value, .direction = "down")
 treas_gen_acct = treas_gen_acct %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(treas_gen_acct_value, .direction = "up")
-
+  fill(treas_gen_acct_value, .direction = "down")
 #Merging Weekly Indicators
 weekly_indicators = full_join(intl_job_claims, chifed_nfci) %>% full_join(chifed_nfci) %>% full_join(m.1) %>% full_join(fed_bal) %>% full_join(treas_gen_acct)
-
 weekly_indicators
 ```
 
@@ -168,27 +147,22 @@ weekly_indicators
 #Monthly Indicators are as follows:
 cpi = fredr( 
   series_id = "USACPIALLMINMEI",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 ur = fredr(
   series_id = "UNRATE",
-  observation_start = as.Date("2005-01-01"),
+  observation_start = as.Date("2006-01-01"),
   observation_end = as.Date("2021-01-01"))[,c(1,3)]
-
 #Rename Dataframes before merging
 names(cpi) = c("date", "cpi_value")
 names(ur) = c("date", "ur_value")
-
 # Forward Filled Values for Monthly Data
 cpi = cpi %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(cpi_value, .direction = "up")
-
+  fill(cpi_value, .direction = "down")
 ur = ur %>%
   complete(date = seq.Date(min(date), max(date), by="day")) %>%
-  fill(ur_value, .direction = "up")
-
+  fill(ur_value, .direction = "down")
 #Merging Monthly Indicators
 monthly_indicators = full_join(ur, cpi)
 monthly_indicators
@@ -198,14 +172,46 @@ monthly_indicators
 final_indicator_df = full_join(daily_indicators, weekly_indicators) %>%          full_join(monthly_indicators) %>%
   fill(c("crude_oil_price_value", "intl_trade_weight_dol_value", "yield_2yr_value",
          "chifed_nfci_value", "intl_job_claims_value", "m.1_value", "fed_bal_value",
-         "treas_gen_acct_value", "ur_value", "cpi_value"), .direction = "up") %>%
+         "treas_gen_acct_value", "ur_value", "cpi_value"), .direction = "down") %>%
   
 # Fill Down for the most recent dates
   fill(c("crude_oil_price_value", "intl_trade_weight_dol_value", "yield_2yr_value", "intl_job_claims_value", "fed_bal_value", "treas_gen_acct_value"), .direction = "down")
-
 # Check to make sure that there are no more NAs in each column
 final_indicator_df %>% summarise_all(~ sum(is.na(.)))
 ```
+
+#VHT FGarch
+```{r}
+vht['dailyReturn'] = (vht$close - vht$open)/ vht$open
+holdIt = data.frame(vht$date, vht$dailyReturn)
+rownames(holdIt) <- holdIt$vht.date
+holdIt$vht.date <- NULL
+x.vec = as.xts(holdIt)
+fit <- garchFit(~ garch(1,1), data = x.vec, trace = FALSE)
+volvht <- volatility(fit)
+volvht <- xts(volvht, order.by = index(x.vec))
+plot(volvht)
+```
+
+#VDE FGarch
+```{r}
+vde['dailyReturn'] = (vde$close - vde$open)/ vde$open
+holdIt2 = data.frame(vde$date, vde$dailyReturn)
+rownames(holdIt2) <- holdIt2$vde.date
+holdIt2$vde.date <- NULL
+x.vec2 = as.xts(holdIt2)
+fit2 <- garchFit(~ garch(1,1), data = x.vec2, trace = FALSE)
+volvde <- volatility(fit2)
+volvde <- xts(volvde, order.by = index(x.vec2))
+plot(volvde)
+```
+```{r}
+volvde_df <- data.frame(date = as.Date(index(volvde)), 
+                    coredata(volvde))
+final_merged_vde <- merge(final_indicator_df, volvde_df, by = "date")
+volvht_df <- data.frame(date = as.Date(index(volvht)), 
+                    coredata(volvht))
+final_merged_vht <- merge(final_indicator_df, volvht_df, by = "date")
 
 
 + Type of Problem: **Regression**
