@@ -224,15 +224,104 @@ colnames(final_merged_vht)[13] = "adj_vht.close"
 ```
 
 ```{r}
-
+#Checking for NAs
 final_merged_vde %>% summarise_all(~ sum(is.na(.)))
 final_merged_vht %>% summarise_all(~ sum(is.na(.)))
+```
+
+# Train- Test Split the Data
+```{r}
+y.vol_vde_train = final_merged_vde[1:1888,12]
+y.vol_vde_test = final_merged_vde[1889:3776,12]
+
+x_vde = final_merged_vde[,-c(1, 12)]
+train_vde= final_merged_vde[1:1888,-1]
+test_vde = final_merged_vde[1889:3776,-1]
+colnames(final_merged_vde)
+
+
+y.vol_vht_train = final_merged_vht[1:1888,12]
+y.vol_vht_test = final_merged_vht[1889:3776,12]
+
+x_vht = final_merged_vht[,-c(1, 12)]
+train_vht= final_merged_vht[1:1888,-1]
+test_vht = final_merged_vht[1889:3776,-1]
+```
+
+
+
+# Elastic Net Regression (VDE)
+```{r}
+library(caret) #Train and Validate Machine Learning Methods
+library(glmnet) #Ridge, Lasso, and Elastic Net
+```
+
+## VDE
+```{r}
+elasticnetControl.vde = trainControl(## 5-fold CV
+                            method = "repeatedcv",
+                            number = 5,
+                            ## repeated 5 times
+                            repeats = 5) 
+
+#Fit Elastic net to training data, and cross-validate tuning parameters alpha and lambda on l2 and l1 penalties, respectively
+enetfit.vde = train(coredata.volvde. ~ ., data = train_vde, 
+                 method = "glmnet", 
+                 metric = "RMSE",
+                 trControl = elasticnetControl.vde,
+                 na.action = na.exclude)
+
+enetpreds = predict(enetfit.vde$finalModel, #Use trained model
+                   newx = as.matrix(test_vde[,2:length(test_vde[1,])]), #Predict with X variables, transformed to matrix
+                   s = enetfit.vde$bestTune$lambda) #Choose the lambda parameter based on CV
+
+enetfit.vde #Display cross validation results
+```
+
+```{r}
+stats::predict(enetfit.vde$finalModel, type = "coefficients", s = enetfit.vde$bestTune$lambda)
+```
+
+## VHT
+```{r}
+elasticnetControl.vht = trainControl(## 5-fold CV
+                            method = "repeatedcv",
+                            number = 5,
+                            ## repeated 5 times
+                            repeats = 5) 
+
+#Fit Elastic net to training data, and cross-validate tuning parameters alpha and lambda on l2 and l1 penalties, respectively
+enetfit.vht = train(coredata.volvht. ~ ., data = train_vht, 
+                 method = "glmnet", 
+                 metric = "RMSE",
+                 trControl = elasticnetControl.vht,
+                 na.action = na.exclude)
+
+enetpreds = predict(enetfit.vht$finalModel, #Use trained model
+                   newx = as.matrix(test_vht[,2:length(test_vht[1,])]), #Predict with X variables, transformed to matrix
+                   s = enetfit.vht$bestTune$lambda) #Choose the lambda parameter based on CV
+
+enetfit.vht #Display cross validation results
+```
+
+```{r}
+stats::predict(enetfit.vht$finalModel, type = "coefficients", s = enetfit.vht$bestTune$lambda)
+```
+
+
+```{r}
+# predictions<-data.frame(fqdatest[,1],enetpreds,rfpreds)
+# colnames(GDPpredictions)<-c("GDPgrowth","ElasticNet","RandomForest")
+# GDPforecasts<-window(ts(GDPpredictions,frequency=4,start=c(2010,1)),end=c(2020,1))
+# 
+# autoplot(GDPforecasts)+ggtitle("GDP growth and forecasts from Random Forest and Elastic Net Methods",
+#                               subtitle="2020Q2 removed because drop distorts the scale")
 ```
 
 
 + Type of Problem: **Regression**
 - Linear Regression
-- Lasso/ Ride/ Elastic Net (Only Have to pick 1)
+- Lasso/ Ride/ Elastic Net 
 
 *Create Factor Importance Plots*
 - Regression Trees
