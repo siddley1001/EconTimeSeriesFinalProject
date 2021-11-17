@@ -348,6 +348,7 @@ y.vol_vde_train = final_merged_vde[1:1888,12]
 y.vol_vde_test = final_merged_vde[1889:3776,12]
 
 x_vde = final_merged_vde[,-c(1, 12)]
+y_vde = final_merged_vde$coredata.volvde.
 train_vde= final_merged_vde[1:1888,-1]
 test_vde = final_merged_vde[1889:3776,-1]
 colnames(final_merged_vde)
@@ -357,6 +358,7 @@ y.vol_vht_train = final_merged_vht[1:1888,12]
 y.vol_vht_test = final_merged_vht[1889:3776,12]
 
 x_vht = final_merged_vht[,-c(1, 12)]
+y_vht = final_merged_vht$coredata.volvht.
 train_vht= final_merged_vht[1:1888,-1]
 test_vht = final_merged_vht[1889:3776,-1]
 ```
@@ -421,43 +423,18 @@ enetfit.vht #Display cross validation results
 stats::predict(enetfit.vht$finalModel, type = "coefficients", s = enetfit.vht$bestTune$lambda)
 ```
 
-
 ```{r}
-# predictions<-data.frame(fqdatest[,1],enetpreds,rfpreds)
-# colnames(GDPpredictions)<-c("GDPgrowth","ElasticNet","RandomForest")
-# GDPforecasts<-window(ts(GDPpredictions,frequency=4,start=c(2010,1)),end=c(2020,1))
-# 
-# autoplot(GDPforecasts)+ggtitle("GDP growth and forecasts from Random Forest and Elastic Net Methods",
-#                               subtitle="2020Q2 removed because drop distorts the scale")
+#install.packages("remotes")
+remotes::install_github("gabrielrvsc/HDeconometrics")
+
+enet_vde = HDeconometrics::ic.glmnet(x_vde, y_vde, crit = "bic", alpha=1, lambda = enetfit.vde$bestTune$lambda)
+coef(enet_vde)
+enet_vde$ic
+
+enet_vht = HDeconometrics::ic.glmnet(x_vht, y_vht, crit = "bic", alpha=1, lambda = enetfit.vht$bestTune$lambda)
+coef(enet_vht)
+enet_vht$ic
 ```
-
-
-+ Type of Problem: **Regression**
-- Linear Regression
-- Lasso/ Ride/ Elastic Net 
-
-*Create Factor Importance Plots*
-- Regression Trees
-- Random Forests
-- Boosting
-
-- ~~SVM~~
-- ~~kNN~~
-
-# Requirements
-
-+ 15 pages long
-
-# Parts
-
-+ ~~Research Question~~
-+ ~~Data~~
-+ Methodology
-  + Assumptions
-  + Unique
-  + Interpretability
-  + Bias/ Variance Tradeoff in parameter selection
-+ Results
 
 
 
