@@ -1,0 +1,76 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+new_lambda <- 0.00001
+AIC_vals<- vector()
+lamb_vals <- vector()
+AIC_min <- 0.0
+lamb_min <- 0.00001
+while(new_lambda < 0.01){
+  lamb_vals <- c(lamb_vals, new_lambda)
+  fit_AIC <- glmnet(x_vde, y_vde, alpha = 1, lambda = new_lambda)
+  tLL <- - deviance(fit_AIC)
+  k <- fit_AIC$df
+  n <- fit_AIC$nobs
+  AICc <- -tLL+2*k
+  if(new_lambda == 0.00001){
+    AIC_min = AICc
+  }
+  else if(AICc < AIC_min && AICc != AIC_min){
+    AIC_min = AICc
+    lamb_min = new_lambda
+    print(lamb_min)
+  }
+  AIC_vals<- c(AIC_vals, AICc)
+  new_lambda = new_lambda + 0.001
+}
+good_LASSO <- glmnet(x_vde, y_vde, alpha = 1, lambda = lamb_min)
+coef(good_LASSO)
+print(AIC_min)
+print(lamb_min)
+plot(AIC_vals, lamb_vals)
+
+```
+
+```{r}
+
+new_lambda_vht <- 0.00001
+AIC_vals_vht <- vector()
+lamb_vals_vht <- vector()
+AIC_min_vht <- 0.0
+lamb_min_vht <- 0.00001
+while(new_lambda_vht < 0.01){
+  lamb_vals_vht <- c(lamb_vals_vht, new_lambda_vht)
+  fit_AIC_vht <- glmnet(x_vht, y_vht, alpha = 1, lambda = new_lambda_vht)
+  tLL <- - deviance(fit_AIC_vht)
+  k <- fit_AIC_vht$df
+  n <- fit_AIC_vht$nobs
+  AIC_vht <- -tLL+2*k
+  if(new_lambda_vht == 0.00001){
+    AIC_min_vht = AIC_vht
+  }
+  else if(AIC_vht < AIC_min_vht){
+    AIC_min_vht = AIC_vht
+    lamb_min_vht = new_lambda_vht
+  }
+  AIC_vals_vht<- c(AIC_vals_vht, AIC_vht)
+  new_lambda_vht = new_lambda_vht + 0.001
+}
+good_LASSO_vht <- glmnet(x_vht, y_vht, alpha = 1, lambda = new_lambda_vht)
+coef(good_LASSO_vht)
+print(AIC_min_vht)
+print(new_lambda_vht)
+plot(AIC_vals_vht, lamb_vals_vht)
+```
+
+```{r}
+
+```
+

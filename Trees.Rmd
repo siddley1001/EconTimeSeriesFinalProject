@@ -1,0 +1,626 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+---
+title: "ECON 573 Research Paper"
+author: "Siddhartha Vanam"
+date: "11/5/2021"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(fredr)
+library(quantmod)
+library(tidyquant)
+library(fGarch)
+```
+
+```{r}
+vht = tq_get("VHT", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+vde = tq_get("VDE", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+
+```
+
+```{r}
+sp = tq_get("^GSPC", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+sp = sp[, c(2,8)]
+sp
+i <- 2
+while(i<3776){
+  sp[i, "adjusted_detr"] = sp$adjusted[i]-sp$adjusted[i-1]
+  i <- i + 1
+}
+sp <- drop(sp[-c(1,3776),])
+adf.test(sp$adjusted_detr)
+```
+
+```{r}
+api_key = "dde5ad634e39b6e288c9a2ebec181e58"
+fredr_set_key(api_key)
+#Daily Indicators are as Follows:
+crude_oil_prices = fredr(
+  series_id = "DCOILBRENTEU",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+intl_trade_weight_dol = fredr(
+  series_id = "DTWEXBGS",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+yield_2yr = fredr(
+  series_id = "DGS2",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(crude_oil_prices) = c("date", "crude_oil_price_value")
+names(intl_trade_weight_dol) = c("date", "intl_trade_weight_dol_value")
+names(yield_2yr) = c("date", "yield_2yr_value")
+```
+
+```{r}
+# Forward Filled Values for Weekly Data
+crude_oil_prices = crude_oil_prices %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(crude_oil_price_value, .direction = "down")
+intl_trade_weight_dol = intl_trade_weight_dol %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(intl_trade_weight_dol_value, .direction = "down")
+yield_2yr = yield_2yr %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(yield_2yr_value, .direction = "down")
+```
+
+
+```{r}
+i <- 3
+while(i<5479){
+  crude_oil_prices[i, "detr_crude_oil_prices"] = crude_oil_prices$crude_oil_price_value[i]-crude_oil_prices$crude_oil_price_value[i-1]
+  i <- i + 1
+}
+crude_oil_prices <- drop(crude_oil_prices[-c(1,2,5479),])
+adf.test(crude_oil_prices$detr_crude_oil_prices)
+i <- 2
+while(i<5479){
+  intl_trade_weight_dol[i, "detr_intl_dol"] = intl_trade_weight_dol$intl_trade_weight_dol_value[i]-intl_trade_weight_dol$intl_trade_weight_dol_value[i-1]
+  i <- i + 1
+}
+intl_trade_weight_dol <- drop(intl_trade_weight_dol[-c(1,5479),])
+adf.test(intl_trade_weight_dol$detr_intl_dol)
+i <- 2
+while(i<5479){
+  yield_2yr[i, "detr_yield"] = yield_2yr$yield_2yr_value[i]-yield_2yr$yield_2yr_value[i-1]
+  i <- i + 1
+}
+yield_2yr <- drop(yield_2yr[-c(1, 2, 5479),])
+adf.test(yield_2yr$detr_yield)
+#Merging Data
+daily_indicators = full_join(crude_oil_prices, intl_trade_weight_dol) %>% full_join(yield_2yr)
+```
+
+
+```{r}
+#Weekly Indicators are as follows:
+intl_job_claims = fredr( 
+  series_id = "ICSA",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+chifed_nfci = fredr( 
+  series_id = "NFCI",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+m.1 = fredr( 
+  series_id = "M1SL",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+fed_bal = fredr( 
+  series_id = "WALCL",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+treas_gen_acct = fredr( 
+  series_id = "WDTGAL",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(intl_job_claims) = c("date", "intl_job_claims_value")
+names(chifed_nfci) = c("date", "chifed_nfci_value")
+names(m.1) = c("date", "m.1_value")
+names(fed_bal) = c("date", "fed_bal_value")
+names(treas_gen_acct) = c("date", "treas_gen_acct_value")
+
+```
+
+
+
+```{r}
+i <- 2
+while(i<788){
+  chifed_nfci[i, "chifed_nfci_detrended"] = chifed_nfci$chifed_nfci_value[i]-chifed_nfci$chifed_nfci_value[i-1]
+  i <- i + 1
+}
+chifed_nfci <- drop(chifed_nfci[-c(1,788),])
+adf.test(chifed_nfci$chifed_nfci_detrended)
+i <- 2
+while(i<181){
+  m.1[i, "m.1_detrended"] = m.1$m.1_value[i]-m.1$m.1_value[i-1]
+  i <- i + 1
+}
+m.1 <- drop(m.1[-c(1,181),])
+adf.test(m.1$m.1_detrended)
+i <- 2
+while(i<787){
+  fed_bal[i, "fed_bal_detrended"] = fed_bal$fed_bal_value[i]-fed_bal$fed_bal_value[i-1]
+  i <- i + 1
+}  
+fed_bal <- drop(fed_bal[-c(1,787),])
+adf.test(fed_bal$fed_bal_detrended)
+i <- 2
+while(i<787){
+  treas_gen_acct[i, "treas_gen_acct_detrended"] = treas_gen_acct$treas_gen_acct_value[i]-treas_gen_acct$treas_gen_acct_value[i-1]
+  i <- i + 1
+}
+ treas_gen_acct <- drop( treas_gen_acct[-c(1,787),])
+adf.test( treas_gen_acct$treas_gen_acct_detrended)
+```
+
+
+```{r}
+# Forward Filled Values for Weekly Data
+intl_job_claims = intl_job_claims %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(intl_job_claims_value, .direction = "down")
+chifed_nfci = chifed_nfci %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(chifed_nfci_detrended, .direction = "down")
+m.1 = m.1 %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(m.1_detrended, .direction = "down")
+fed_bal = fed_bal %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(fed_bal_detrended, .direction = "down")
+treas_gen_acct = treas_gen_acct %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(treas_gen_acct_detrended, .direction = "down")
+#Merging Weekly Indicators
+weekly_indicators = full_join(intl_job_claims, chifed_nfci) %>% full_join(chifed_nfci) %>% full_join(m.1) %>% full_join(fed_bal) %>% full_join(treas_gen_acct)
+weekly_indicators
+```
+
+
+```{r}
+#Monthly Indicators are as follows:
+cpi = fredr( 
+  series_id = "USACPIALLMINMEI",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+ur = fredr(
+  series_id = "UNRATE",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(cpi) = c("date", "cpi_value")
+names(ur) = c("date", "ur_value")
+```
+
+
+```{r}
+i <- 2
+while(i<181){
+  cpi[i, "cpi_detr"] = cpi$cpi_value[i]-cpi$cpi_value[i-1]
+  i <- i + 1
+}  
+cpi <- drop(cpi[-c(1,181),])
+adf.test(cpi$cpi_detr)
+i <- 2
+while(i<181){
+  ur[i, "ur_detr"] = ur$ur_value[i]-ur$ur_value[i-1]
+  i <- i + 1
+}
+ur <- drop(ur[-c(1,181),])
+adf.test( ur$ur_detr)
+```
+
+
+```{r}
+# Forward Filled Values for Monthly Data
+cpi = cpi %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(cpi_detr, .direction = "down")
+ur = ur %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(ur_detr, .direction = "down")
+
+#Merging Monthly Indicators
+monthly_indicators = full_join(ur, cpi)
+monthly_indicators
+final_indicator_df = full_join(daily_indicators, weekly_indicators) %>%          full_join(monthly_indicators) %>%
+  fill(c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr"), .direction = "down") %>%
+  
+# Fill Down for the most recent dates
+  fill(c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield", "intl_job_claims_value", "fed_bal_detrended", "treas_gen_acct_detrended"), .direction = "down")
+# Check to make sure that there are no more NAs in each column
+
+final_indicator_df %>% summarise_all(~ sum(is.na(.)))
+final_indicator_df <- drop(final_indicator_df[-c(1:29),])
+```
+
+
+```{r}
+vht['dailyReturn'] = (vht$close - vht$open)/ vht$open
+holdIt = data.frame(vht$date, vht$dailyReturn)
+rownames(holdIt) <- holdIt$vht.date
+holdIt$vht.date <- NULL
+x.vec = as.xts(holdIt)
+fit <- garchFit(~ garch(1,1), data = x.vec, trace = FALSE)
+volvht <- volatility(fit)
+volvht <- xts(volvht, order.by = index(x.vec))
+plot(volvht)
+```
+
+
+
+```{r}
+vde['dailyReturn'] = (vde$close - vde$open)/ vde$open
+holdIt2 = data.frame(vde$date, vde$dailyReturn)
+rownames(holdIt2) <- holdIt2$vde.date
+holdIt2$vde.date <- NULL
+x.vec2 = as.xts(holdIt2)
+fit2 <- garchFit(~ garch(1,1), data = x.vec2, trace = FALSE)
+volvde <- volatility(fit2)
+volvde <- xts(volvde, order.by = index(x.vec2))
+plot(volvde)
+```
+
+```{r}
+vol.vde_df <- data.frame(date = as.Date(index(volvde)), 
+                    coredata(volvde))
+final_merged_vde <- merge(final_indicator_df, vol.vde_df, by = "date")
+final_merged_vde = merge(final_merged_vde, sp, by = "date")
+colnames(final_merged_vde)[13] = "adj_vde.close"
+vol.vht_df <- data.frame(date = as.Date(index(volvht)), 
+                    coredata(volvht))
+final_merged_vht <- merge(final_indicator_df, vol.vht_df, by = "date")
+final_merged_vht = merge(final_merged_vht, sp, by = "date")
+colnames(final_merged_vht)[13] = "adj_vht.close"
+```
+
+
+
+```{r}
+final_merged_vde %>% summarise_all(~ sum(is.na(.)))
+final_merged_vht %>% summarise_all(~ sum(is.na(.)))
+```
+
+
+```{r}
+final_merged_vde <- final_merged_vde[-c(2,4,6,9,11,13,15,17,19,22)]
+final_merged_vde
+```
+
+```{r}
+final_merged_vht <- final_merged_vht[-c(2,4,6,9,11,13,15,17,19,22)]
+final_merged_vht
+```
+
+```{r}
+library(tree)
+```
+
+```{r}
+#Creating a classification tree to see which predictors are most important in determining if volatility is high or low. We are not interested in the exact value of volatility just what makes it high or low. Therefore, classification tree is easier to interpret.
+
+#Inspecting volatility range to divide data between low and high
+range(final_merged_vde$coredata.volvde.)
+range(final_merged_vht$coredata.volvht.)
+```
+
+```{r}
+plot(final_merged_vde$coredata.volvde.)
+```
+Looking at the graph, 0.02 can be a good cutoff point to determine if volatility is high since normaly the data points are below this.
+
+
+```{r}
+plot(final_merged_vht$coredata.volvht.)
+```
+Looking at the graph, 0.015 can be a good cutoff point to determine if volatility is high since normaly the data points are below this.
+
+```{r}
+#Creating the binary variable
+highVde <- factor(ifelse(final_merged_vde$coredata.volvde.<= 0.02, "No", "Yes"))
+highVht <- factor(ifelse(final_merged_vde$coredata.volvde.<= 0.015, "No", "Yes"))
+```
+
+
+```{r}
+#Creating dataframe with binary variable
+binaryVde <- data.frame(final_merged_vde, highVde)
+binaryVht <- data.frame(final_merged_vht, highVht)
+```
+
+
+```{r}
+#Fitting the classification tree. We avoid the predictor variable and the date in the dataframe
+treeVde <- tree(highVde ~ . -coredata.volvde.-date, data = binaryVde)
+treeVht <- tree(highVht ~ . -coredata.volvht.-date, data = binaryVht)
+```
+
+```{r}
+summary(treeVde)
+summary(treeVht)
+```
+
+```{r}
+plot(treeVde)
+text(treeVde, pretty= 0)
+```
+At first glance, the most important factor in determing whether volatility is high or low is the jobless claims value.
+
+
+```{r}
+plot(treeVht)
+text(treeVht, pretty= 0)
+```
+
+
+```{r}
+treeVde
+```
+
+```{r}
+treeVht
+```
+
+
+```{r}
+#Dividing training and testing sample 50-50
+myTrainVde <- binaryVde[1:1877,]
+myTestVde <- binaryVde[1878:3754,]
+myTrainVht <- binaryVht[1:1877,]
+myTestVht <- binaryVht[1878:3754,]
+#Creating this data frame that contains the actual values of the test data to compare results after
+actualHighVde <- myTestVde[['highVde']]
+actualHighVht <- myTestVht[['highVht']]
+#Training
+treeVde2 <- tree(highVde ~. -coredata.volvde.-date, data = myTrainVde)
+summary(treeVde2)
+treeVht2 <- tree(highVht ~. -coredata.volvht.-date, data = myTrainVht)
+summary(treeVht2)
+```
+Number of interest is the misclassification error rate. Tree works better for VDE than VHT
+
+
+```{r}
+treeVde2
+```
+
+
+```{r}
+treeVht2
+```
+
+
+
+```{r}
+#Testing
+treeVdePredictHigh <- predict(treeVde2, myTestVde, type = "class")
+#Seeing how well the tree performed
+table(treeVdePredictHigh, actualHighVde)
+#Testing
+treeVhtPredictHigh <- predict(treeVht2, myTestVht, type = "class")
+#Seeing how well the tree performed
+table(treeVhtPredictHigh, actualHighVht)
+
+```
+
+```{r}
+(1548+126)/(1877)
+(1419+195)/(1877)
+```
+Correct prediction in 89% of the cases for VDE
+Correct prediction in 85% of the cases for VHT
+
+```{r}
+print("VDE")
+((126+59)/(1877))
+(126/(126+59))
+print("VHT")
+((195+237)/(1877))
+(195/(195+237))
+```
+For VDE, it's important to note that the data is unbalanced (10% of cases are high volatility), but the algorithm still predicts correctly high volatility in 68% of the cases that high volatility actual happens. This is still better than randomly guessing. For VHT this number drops to 45%.
+
+Also, a problem with  trees, is that they may lead to overfitting if the tree is too "tall". Therefore, we consider pruning the tree next to see if results can be improved
+
+```{r}
+#Function perform cross validation to see which level of tree complexity is best
+set.seed(7)
+cvTreeVde <- cv.tree(treeVde, FUN = prune.misclass)
+cvTreeVht <- cv.tree(treeVht, FUN = prune.misclass)
+```
+
+```{r}
+#Plotting tree size vs cross-validation errors
+par(mfrow = c(1,2))
+plot(cvTreeVde$size, cvTreeVde$dev, type = "b", ylab = "Error", xlab = "Number of Terminal Nodes", main = "VDE")
+```
+We see in the plot that the cv error goes down significantly with about 3-4 levels. 
+
+```{r}
+#Plotting tree size vs cross-validation errors
+par(mfrow = c(1,2))
+plot(cvTreeVht$size, cvTreeVht$dev, type = "b", ylab = "Error", xlab = "Number of Terminal Nodes", main = "VHT")
+plot(cvTreeVde$size, cvTreeVde$dev, type = "b", ylab = "Error", xlab = "Number of Terminal Nodes", main = "VDE")
+```
+
+```{r}
+par(mfrow = c(1,2))
+plot(cvTreeVde$k, cvTreeVde$dev, type = "b", main = "VDE", ylab = "Error", xlab = "k")
+plot(cvTreeVht$k, cvTreeVht$dev, type = "b", main = "VHT", ylab = "Error", xlab = "k")
+```
+K represents the "punishment" for large trees. If K is too big, it's like having no tree at all, that's why the error is high when this is high. The ideal k is probably between 0 and 5 because a large increase in K (a large reduction in tree length) leads to a relatively small increase in the cross validation error. From 5 to 8, the line is steeper.
+
+```{r}
+
+```
+For VHT, the ideal k is probably between 0 and 5 as well because a large increase in K (a large reduction in tree length) leads to a relatively small increase in the cross validation error. When K reaches 10, there is a sharp incline in the error.
+
+```{r}
+cvTreeVde$size
+cvTreeVht$size
+```
+
+```{r}
+cvTreeVde$dev
+cvTreeVht$dev
+```
+
+For VDE, The tree with 16 terminal nodes seems to be the best one because it minimizes error and tree size.
+
+For VHT, The tree with 16 terminal nodes seems to be the best one because it minimizes error and tree size. 
+
+For exploration purposes, we will trim the VDE tree at 6 terminal nodes.
+
+```{r}
+#Pruning the tree and using training sample
+pruneTreeVde <- prune.misclass(treeVde2, best = 6)
+plot(pruneTreeVde)
+text(pruneTreeVde)
+```
+```{r}
+treeVdePrunePrediction <- predict(pruneTreeVde,myTestVde, type = "class")
+table(treeVdePrunePrediction, actualHighVde)
+```
+
+```{r}
+(1494+137)/(1877)
+137/(137+48)
+```
+If we reduce the number of nodes to 6, then our overall accuracy droops to 86% from 89% However, our ability to predict high volatility when it actually happens is increases from 68% to 74%. Since we care more about predicting high volatility, pruning the tree might be advisable.
+
+```{r}
+library(randomForest)
+set.seed(4)
+#Bagging because we are using all 12 predictors
+#Unlike before, here we are creating regression trees, not classification trees
+
+myTrainVde2 <- final_merged_vde[1:1877,]
+myTestVde2 <- final_merged_vde[1878:3754,]
+myTrainVht2 <- final_merged_vht[1:1877,]
+myTestVht2 <- final_merged_vht[1878:3754,]
+```
+
+```{r}
+#Bagging although we use the random forest function because we are including all predictors
+baggingVde <- randomForest(coredata.volvde.~. - date, data = myTrainVde2 , importance = TRUE)
+baggingVht <- randomForest(coredata.volvht.~. - date, data = myTrainVht2,importance = TRUE)
+```
+
+```{r}
+baggingVde
+```
+
+
+```{r}
+baggingVht
+```
+
+
+```{r}
+baggingPredictVde <- predict(baggingVde, data=myTestVde2)
+volatilityActualVde <- myTestVde2[["coredata.volvde."]]
+mean((baggingPredictVde - volatilityActualVde)^2)
+
+baggingPredictVht <- predict(baggingVht, data=myTestVht2)
+volatilityActualVht <- myTestVht2[["coredata.volvht."]]
+mean((baggingPredictVht - volatilityActualVht)^2)
+```
+For VDE, the test MSE is 0.0001013829. This means that the model performs exceptionally well.
+For VHT, the test MSE is 3.266747e-05. This model also performs well.
+
+```{r}
+#Specifying that we are using less predictors with mtry = 6
+randomForestVde <- randomForest(coredata.volvde.~. - date, data = myTrainVde2, mtry=6, importance = TRUE)
+randomForestPredictVde <- predict(randomForestVde, data = myTestVde2)
+mean((randomForestPredictVde - volatilityActualVde)^2)
+
+randomForestVht <- randomForest(coredata.volvht.~. - date, data = myTrainVht2, mtry=6, importance = TRUE)
+randomForestPredictVht <- predict(randomForestVht, data = myTestVht2)
+mean((randomForestPredictVht - volatilityActualVht)^2)
+
+
+```
+This is more than bagging. Therefore random forests perform worse than bagging. Using only a subset of predictors when building the trees did not help.
+
+```{r}
+importance(randomForestVde)
+```
+
+```{r}
+importance(randomForestVht)
+```
+
+```{r}
+varImpPlot(randomForestVde)
+```
+```{r}
+varImpPlot(randomForestVht)
+```
+
+
+```{r}
+#Boosting
+library(gbm)
+set.seed(1)
+boostingVde <- gbm(coredata.volvde. ~. - date, data = myTrainVde2, 
+                   distribution = "gaussian", n.trees = 5000,
+                   interaction.depth = 3)
+boostingVht <- gbm(coredata.volvht. ~. - date, data = myTrainVht2, 
+                   distribution = "gaussian", n.trees = 5000,
+                   interaction.depth = 3)
+```
+
+
+```{r}
+summary(boostingVde)
+```
+
+
+```{r}
+summary(boostingVht)
+```
+
+
+```{r}
+boostingPredictVde <- predict(boostingVde, data = myTestVde2, n.trees = 5000)
+mean((boostingPredictVde-volatilityActualVde)^2)
+```
+More than bagging but less than random forests
+
+```{r}
+boostingPredictVht <- predict(boostingVht, data = myTestVht2, n.trees = 5000)
+mean((boostingPredictVht-volatilityActualVht)^2)
+```
+More than bagging and random forests
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

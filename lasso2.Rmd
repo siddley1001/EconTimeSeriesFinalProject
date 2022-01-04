@@ -1,0 +1,386 @@
+---
+title: "ECON 573 Research Paper"
+author: "Siddhartha Vanam"
+date: "11/5/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Necessary Libraries
+```{r test1, echo=FALSE}
+library(tidyverse)
+library(fredr)
+library(quantmod)
+library(tidyquant)
+library(fGarch)
+```
+
+# Research Question in Discussion: Using the Garch Model to explain volatility of `VHT` and `VDE`  that represent Sector `Healthcare` and `Energy` (daily).
+
+```{r}
+vht = tq_get("VHT", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+```
+
+
+```{r}
+vde = tq_get("VDE", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+```
+
+
+```{r}
+#S&P 500
+sp = tq_get("^GSPC", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+sp = sp[, c(2,8)]
+sp
+i <- 2
+while(i<3776){
+  sp[i, "adjusted_detr"] = sp$adjusted[i]-sp$adjusted[i-1]
+  i <- i + 1
+}
+sp <- drop(sp[-c(1,3776),])
+adf.test(sp$adjusted_detr)
+
+```
+
+
+```{r}
+vix = tq_get("^VIX", 
+        from = '2006-01-01',
+        to = "2021-01-01",warnings = FALSE)
+```
+
+
+```{r}
+#might have to prefix the columns before we merge with the respective symbol
+head(vht)
+head(vde)
+head(sp)
+sample(vix)
+```
+
+# Getting Data for the Macro Indicator
+```{r}
+api_key = "dde5ad634e39b6e288c9a2ebec181e58"
+fredr_set_key(api_key)
+#Daily Indicators are as Follows:
+crude_oil_prices = fredr(
+  series_id = "DCOILBRENTEU",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+intl_trade_weight_dol = fredr(
+  series_id = "DTWEXBGS",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+yield_2yr = fredr(
+  series_id = "DGS2",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(crude_oil_prices) = c("date", "crude_oil_price_value")
+names(intl_trade_weight_dol) = c("date", "intl_trade_weight_dol_value")
+names(yield_2yr) = c("date", "yield_2yr_value")
+```
+
+```{r}
+# Forward Filled Values for Weekly Data
+crude_oil_prices = crude_oil_prices %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(crude_oil_price_value, .direction = "down")
+intl_trade_weight_dol = intl_trade_weight_dol %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(intl_trade_weight_dol_value, .direction = "down")
+yield_2yr = yield_2yr %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(yield_2yr_value, .direction = "down")
+```
+
+
+```{r}
+i <- 3
+while(i<5479){
+  crude_oil_prices[i, "detr_crude_oil_prices"] = crude_oil_prices$crude_oil_price_value[i]-crude_oil_prices$crude_oil_price_value[i-1]
+  i <- i + 1
+}
+crude_oil_prices <- drop(crude_oil_prices[-c(1,2,5479),])
+adf.test(crude_oil_prices$detr_crude_oil_prices)
+i <- 2
+while(i<5479){
+  intl_trade_weight_dol[i, "detr_intl_dol"] = intl_trade_weight_dol$intl_trade_weight_dol_value[i]-intl_trade_weight_dol$intl_trade_weight_dol_value[i-1]
+  i <- i + 1
+}
+intl_trade_weight_dol <- drop(intl_trade_weight_dol[-c(1,5479),])
+adf.test(intl_trade_weight_dol$detr_intl_dol)
+i <- 2
+while(i<5479){
+  yield_2yr[i, "detr_yield"] = yield_2yr$yield_2yr_value[i]-yield_2yr$yield_2yr_value[i-1]
+  i <- i + 1
+}
+yield_2yr <- drop(yield_2yr[-c(1, 2, 5479),])
+adf.test(yield_2yr$detr_yield)
+#Merging Data
+daily_indicators = full_join(crude_oil_prices, intl_trade_weight_dol) %>% full_join(yield_2yr)
+```
+
+
+
+```{r}
+#Weekly Indicators are as follows:
+intl_job_claims = fredr( 
+  series_id = "ICSA",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+
+chifed_nfci = fredr( 
+  series_id = "NFCI",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+m.1 = fredr( 
+  series_id = "M1SL",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+fed_bal = fredr( 
+  series_id = "WALCL",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+treas_gen_acct = fredr( 
+  series_id = "WDTGAL",
+  observation_start = as.Date("2005-12-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(intl_job_claims) = c("date", "intl_job_claims_value")
+names(chifed_nfci) = c("date", "chifed_nfci_value")
+names(m.1) = c("date", "m.1_value")
+names(fed_bal) = c("date", "fed_bal_value")
+names(treas_gen_acct) = c("date", "treas_gen_acct_value")
+
+
+
+
+
+```
+
+```{r}
+i <- 2
+while(i<788){
+  chifed_nfci[i, "chifed_nfci_detrended"] = chifed_nfci$chifed_nfci_value[i]-chifed_nfci$chifed_nfci_value[i-1]
+  i <- i + 1
+}
+chifed_nfci <- drop(chifed_nfci[-c(1,788),])
+adf.test(chifed_nfci$chifed_nfci_detrended)
+i <- 2
+while(i<181){
+  m.1[i, "m.1_detrended"] = m.1$m.1_value[i]-m.1$m.1_value[i-1]
+  i <- i + 1
+}
+m.1 <- drop(m.1[-c(1,181),])
+adf.test(m.1$m.1_detrended)
+i <- 2
+while(i<787){
+  fed_bal[i, "fed_bal_detrended"] = fed_bal$fed_bal_value[i]-fed_bal$fed_bal_value[i-1]
+  i <- i + 1
+}  
+fed_bal <- drop(fed_bal[-c(1,787),])
+adf.test(fed_bal$fed_bal_detrended)
+i <- 2
+while(i<787){
+  treas_gen_acct[i, "treas_gen_acct_detrended"] = treas_gen_acct$treas_gen_acct_value[i]-treas_gen_acct$treas_gen_acct_value[i-1]
+  i <- i + 1
+}
+ treas_gen_acct <- drop( treas_gen_acct[-c(1,787),])
+adf.test( treas_gen_acct$treas_gen_acct_detrended)
+```
+
+
+
+```{r}
+# Forward Filled Values for Weekly Data
+intl_job_claims = intl_job_claims %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(intl_job_claims_value, .direction = "down")
+chifed_nfci = chifed_nfci %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(chifed_nfci_detrended, .direction = "down")
+m.1 = m.1 %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(m.1_detrended, .direction = "down")
+fed_bal = fed_bal %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(fed_bal_detrended, .direction = "down")
+treas_gen_acct = treas_gen_acct %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(treas_gen_acct_detrended, .direction = "down")
+#Merging Weekly Indicators
+weekly_indicators = full_join(intl_job_claims, chifed_nfci) %>% full_join(chifed_nfci) %>% full_join(m.1) %>% full_join(fed_bal) %>% full_join(treas_gen_acct)
+weekly_indicators
+```
+
+
+```{r}
+#Monthly Indicators are as follows:
+cpi = fredr( 
+  series_id = "USACPIALLMINMEI",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+ur = fredr(
+  series_id = "UNRATE",
+  observation_start = as.Date("2006-01-01"),
+  observation_end = as.Date("2021-01-01"))[,c(1,3)]
+#Rename Dataframes before merging
+names(cpi) = c("date", "cpi_value")
+names(ur) = c("date", "ur_value")
+
+```
+
+```{r}
+i <- 2
+while(i<181){
+  cpi[i, "cpi_detr"] = cpi$cpi_value[i]-cpi$cpi_value[i-1]
+  i <- i + 1
+}  
+cpi <- drop(cpi[-c(1,181),])
+adf.test(cpi$cpi_detr)
+i <- 2
+while(i<181){
+  ur[i, "ur_detr"] = ur$ur_value[i]-ur$ur_value[i-1]
+  i <- i + 1
+}
+ur <- drop(ur[-c(1,181),])
+adf.test( ur$ur_detr)
+```
+
+
+```{r}
+# Forward Filled Values for Monthly Data
+cpi = cpi %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(cpi_detr, .direction = "down")
+ur = ur %>%
+  complete(date = seq.Date(min(date), max(date), by="day")) %>%
+  fill(ur_detr, .direction = "down")
+
+#Merging Monthly Indicators
+monthly_indicators = full_join(ur, cpi)
+monthly_indicators
+final_indicator_df = full_join(daily_indicators, weekly_indicators) %>%          full_join(monthly_indicators) %>%
+  fill(c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr"), .direction = "down") %>%
+  
+# Fill Down for the most recent dates
+  fill(c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield", "intl_job_claims_value", "fed_bal_detrended", "treas_gen_acct_detrended"), .direction = "down")
+# Check to make sure that there are no more NAs in each column
+
+final_indicator_df %>% summarise_all(~ sum(is.na(.)))
+final_indicator_df <- drop(final_indicator_df[-c(1:29),])
+```
+
+#VHT FGarch
+```{r}
+vht['dailyReturn'] = (vht$close - vht$open)/ vht$open
+holdIt = data.frame(vht$date, vht$dailyReturn)
+rownames(holdIt) <- holdIt$vht.date
+holdIt$vht.date <- NULL
+x.vec = as.xts(holdIt)
+fit <- garchFit(~ garch(1,1), data = x.vec, trace = FALSE)
+volvht <- volatility(fit)
+volvht <- xts(volvht, order.by = index(x.vec))
+plot(volvht)
+```
+
+#VDE FGarch
+```{r}
+vde['dailyReturn'] = (vde$close - vde$open)/ vde$open
+holdIt2 = data.frame(vde$date, vde$dailyReturn)
+rownames(holdIt2) <- holdIt2$vde.date
+holdIt2$vde.date <- NULL
+x.vec2 = as.xts(holdIt2)
+fit2 <- garchFit(~ garch(1,1), data = x.vec2, trace = FALSE)
+volvde <- volatility(fit2)
+volvde <- xts(volvde, order.by = index(x.vec2))
+plot(volvde)
+```
+
+```{r}
+vol.vde_df <- data.frame(date = as.Date(index(volvde)), 
+                    coredata(volvde))
+final_merged_vde <- merge(final_indicator_df, vol.vde_df, by = "date")
+final_merged_vde = merge(final_merged_vde, sp, by = "date")
+colnames(final_merged_vde)[13] = "adj_vde.close"
+vol.vht_df <- data.frame(date = as.Date(index(volvht)), 
+                    coredata(volvht))
+final_merged_vht <- merge(final_indicator_df, vol.vht_df, by = "date")
+final_merged_vht = merge(final_merged_vht, sp, by = "date")
+colnames(final_merged_vht)[13] = "adj_vht.close"
+```
+
+```{r}
+final_merged_vde %>% summarise_all(~ sum(is.na(.)))
+final_merged_vht %>% summarise_all(~ sum(is.na(.)))
+```
+
+```{r}
+library(glmnet)
+train_vde = final_merged_vde[1:1888,]
+test_vde = final_merged_vde[1889:3776,]
+rownames(test_vde) <- 1:nrow(test_vde)
+y_vde<- train_vde$coredata.volvde.
+x_vde<- data.matrix(train_vde[, c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr", "adjusted_detr")])
+x_test_vde <- data.matrix(test_vde[, c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr", "adjusted_detr")])
+cv_model <- cv.glmnet(x_vde, y_vde, alpha = 1, normalize = FALSE)
+opt_lambda <- cv_model$lambda.min
+plot(cv_model)
+opt_LASSO_model <- glmnet(x_vde, y_vde, alpha = 1, lambda = opt_lambda)
+coef(opt_LASSO_model)
+summary(opt_LASSO_model)
+y_predicted <- predict(opt_LASSO_model, s = opt_lambda, newx = x_vde)
+#find SST and SSE
+sum(mean(y_vde)-mean(y_predicted))
+sst <- sum((y_vde - mean(y_vde))^2)
+sse <- sum((y_vde - y_predicted)^2)
+sse
+rsq <- 1 - sse/sst
+rsq
+
+```
+
+```{r}
+train_vht = final_merged_vht[1:1888,]
+test_vht = final_merged_vht[1889:3776,]
+rownames(test_vht) <- 1:nrow(test_vht)
+y_vht<- train_vht$coredata.volvht.
+x_vht<- data.matrix(train_vht[, c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr", "adjusted_detr")])
+x_test_vht <- data.matrix(test_vht[, c("detr_crude_oil_prices", "detr_intl_dol", "detr_yield",
+         "chifed_nfci_detrended", "intl_job_claims_value", "m.1_detrended", "fed_bal_detrended",
+         "treas_gen_acct_detrended", "ur_detr", "cpi_detr", "adjusted_detr")])
+cv_model_vht <- cv.glmnet(x_vht, y_vht, alpha = 1)
+opt_lambda_vht <- cv_model$lambda.min
+plot(cv_model_vht)
+opt_LASSO_model_vht <- glmnet(x_vht, y_vht, alpha = 1, lambda = opt_lambda)
+coef(opt_LASSO_model_vht)
+summary(opt_LASSO_model_vht)
+y_predicted_vht <- predict(opt_LASSO_model_vht, s = opt_lambda_vht, newx = x_vht)
+
+#find SST and SSE
+sst_vht <- sum((y_vht - mean(y_vht))^2)
+sse_vht <- sum((y_vht - y_predicted_vht)^2)
+sse_vht
+rsq_vht <- 1 - sse_vht/sst_vht
+rsq_vht
+```
+
